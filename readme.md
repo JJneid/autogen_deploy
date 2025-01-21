@@ -1,102 +1,154 @@
-# Deploying AutoGen Applications with FastAPI
+# Stock Analyzer API with AutoGen and FastAPI
 
-A guide on wrapping AutoGen agents with FastAPI and containerizing the application.
-Project Structure
+A RESTful API service that wraps AutoGen's multi-agent system for stock analysis, featuring session management and stateful results storage.
 
+## Architecture
+
+- **FastAPI** for RESTful API endpoints
+- **AutoGen** for multi-agent coordination
+- **In-memory/Redis** for session storage
+- **Background Tasks** for asynchronous processing
+
+## Core Components
+
+### 1. Agent Team Structure
+```python
+- Code Generator Agent: Creates analysis code
+- Executor Agent: Runs and validates code
+- Report Agent: Generates comprehensive reports
 ```
-autogen_app/
-├── app/
-│   ├── __init__.py
-│   └── main.py         # FastAPI + AutoGen implementation
-├── requirements.txt    # Dependencies
-└── Dockerfile         # Container configuration
-```
-# Quick Start
 
-## Set Up Environment
+### 2. Session Management
+- Unique session ID format: `analysis_{ticker}_{random_hex}`
+- Stateful storage of analysis parameters and results
+- Background task processing for long-running analyses
 
+### 3. API Endpoints
+
+#### Health Check
+```bash
+GET /health
+Response: {"status": "healthy"}
 ```
+
+#### Root Information
+```bash
+GET /
+Response: API information and available endpoints
+```
+
+#### Start Analysis
+```bash
+POST /analyze
+Body: {
+    "ticker": "AAPL",
+    "period": "1y",
+    ...additional parameters
+}
+Response: {
+    "session_id": "analysis_AAPL_1234abcd"
+}
+```
+
+#### Get Results
+```bash
+GET /results/{session_id}
+Response: {
+    "params": original_parameters,
+    "status": "running|completed",
+    "messages": [agent_messages]
+}
+```
+
+## Storage Implementation
+
+### Development (In-Memory)
+```python
+results_storage = {}
+```
+
+### Production (Redis-Ready)
+```python
+from redis import Redis
+redis_client = Redis(
+    host=os.getenv("REDIS_HOST", "localhost"),
+    port=int(os.getenv("REDIS_PORT", 6379))
+)
+```
+
+## Quick Start
+
+1. **Environment Setup**
+```bash
 # Create virtual environment
 python -m venv venv
-source venv/bin/activate  
+source venv/bin/activate
+
+# Install dependencies
+pip install fastapi uvicorn autogen-agentchat "autogen-ext[openai]" python-dotenv redis
 ```
 
-## Install dependencies
-pip install fastapi uvicorn autogen-agentchat "autogen-ext[openai]" python-dotenv pydantic
-
-## Create Configuration
-
-```
-#Create .env file
-echo "OPENAI_API_KEY=your_key_here" > .env
+2. **Configuration**
+```bash
+# Create .env file
+OPENAI_API_KEY=your_key_here
 ```
 
-Run Locally
-
-```
-#Navigate to app directory
-cd app
-```
-
-```
-#Start server
+3. **Run Development Server**
+```bash
 python -m uvicorn main:app --reload
 ```
 
-## Testing the API
+## API Usage Examples
 
-### Health Check
-
-```curl 
-http://localhost:8000/health
-```
-
-## Start Analysis
-
-```curl 
--X POST http://localhost:8000/analyze \
+1. **Start Stock Analysis**
+```bash
+curl -X POST http://localhost:8000/analyze \
      -H "Content-Type: application/json" \
-     -d '{"task": "your task description"}'
+     -d '{
+           "ticker": "AAPL",
+           "period": "1y",
+           "analysis_type": "technical"
+         }'
 ```
-#### Check Results
 
+2. **Check Analysis Results**
 ```bash
-
- http://localhost:8000/results/{session_id}
- ```
-
-## Docker Deployment
-
-### Build Container
-
-```bash
-#Build image
-docker build -t autogen-app .
+curl http://localhost:8000/results/analysis_AAPL_1234abcd
 ```
 
-### Run container
+## Features
+- Asynchronous processing
+- Session-based result tracking
+- AutoGen multi-agent coordination
+- Stateful analysis storage
+- Interactive API documentation (/docs)
+
+## Dependencies
 ```
-docker run -p 8000:8000 --env-file .env autogen-app
-```
-### API Endpoints
-
-```
-GET /health - Health check
-POST /analyze - Start new analysis
-GET /results/{session_id} - Get analysis results
+fastapi
+uvicorn
+autogen-agentchat
+autogen-ext[openai]
+python-dotenv
+redis (optional)
 ```
 
+## Notes
+- API runs on http://localhost:8000
+- Swagger documentation at /docs
+- Background tasks handle long-running analyses
+- Session results persist until server restart (in-memory) or Redis cleanup
 
-Notes
+## Future Enhancements
+1. Implement Redis for production storage
+2. Add result expiration
+3. Implement error handling and retries
+4. Add authentication
+5. Add result pagination
 
-Server runs on http://localhost:8000
-API documentation at http://localhost:8000/docs
-Real-time logs with --reload flag
+## Contributing
+Feel free to submit issues and enhancement requests!
 
-Dependencies
-
-FastAPI
-Uvicorn
-AutoGen
-Python-dotenv
-Pydantic
+## License
+MIT

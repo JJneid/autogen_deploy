@@ -1,4 +1,4 @@
 .env
 venv/
 app/__pycache__/
-kubernetes_optionl/
+kubernetes_optional/
